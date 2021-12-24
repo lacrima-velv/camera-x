@@ -16,14 +16,11 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.CameraX">
+        android:theme="@style/Theme.CameraX.Starting">
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="fullSensor"
             android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize"
-            android:rotationAnimation="seamless"
-            android:exported="true"
-            tools:targetApi="o">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

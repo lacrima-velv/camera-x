@@ -45,6 +45,7 @@
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable-v24/ic_baseline_focus_fail.xml" value="0.2095" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable-v24/ic_baseline_focus_success.xml" value="0.2095" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable-v24/make_photo_button_animated_selector.xml" value="0.15" />
+        <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/animated_vector_flash_off_0_270.xml" value="0.16" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/animated_vector_make_photo_0_270.xml" value="0.1475" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/animated_vector_make_photo_0_90.xml" value="0.1475" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/animated_vector_make_photo_180_270.xml" value="0.1475" />
@@ -78,6 +79,7 @@
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/flash_on_button_selector.xml" value="0.182" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/focus_started.xml" value="0.182" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/focus_transparent.xml" value="0.21" />
+        <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/gradient_background.xml" value="0.21" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/ic_baseline_arrow_back_24.xml" value="0.21" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/ic_baseline_camera_56.xml" value="0.248" />
         <entry key="..\:/Users/lacri/AndroidStudioProjects/CameraX/app/src/main/res/drawable/ic_baseline_flash_off_56.xml" value="0.248" />

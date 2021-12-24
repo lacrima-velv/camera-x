@@ -9,10 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import com.lacrima.camerax.MainViewModel
 import com.lacrima.camerax.databinding.FragmentSaveImageDialogBinding
-import kotlinx.coroutines.flow.collectLatest
 import timber.log.Timber
 
 class SaveImageDialogFragment : DialogFragment() {
@@ -75,12 +73,10 @@ class SaveImageDialogFragment : DialogFragment() {
 
     private fun textWatcherForInputImageNameField(view: View) = object : TextWatcher {
         override fun beforeTextChanged(charSequence: CharSequence?, p1: Int, p2: Int, p3: Int) {
-            Timber.d("beforeTextChanged() is called. charSequence is $charSequence")
             view.isEnabled = charSequence != null && charSequence.isNotEmpty()
         }
 
         override fun onTextChanged(charSequence: CharSequence?, p1: Int, p2: Int, p3: Int) {
-            Timber.d("onTextChanged() is called. charSequence is $charSequence")
             view.isEnabled = charSequence != null && charSequence.isNotEmpty()
         }
 

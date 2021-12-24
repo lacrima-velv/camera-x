@@ -5,13 +5,10 @@ import android.annotation.SuppressLint
 import android.content.*
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.StateListDrawable
-import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -38,20 +35,20 @@ import com.example.gallery.permissiondialogs.DeniedPermissionCameraExplanation
 import com.example.gallery.permissiondialogs.DeniedPermissionCameraShowRationaleFragment
 import com.example.gallery.permissiondialogs.DeniedPermissionCameraShowRationaleFragment.DeniedCameraPermissionClickListener
 import com.lacrima.camerax.*
+import com.lacrima.camerax.MainViewModel.ScreenOrientation.*
 import com.lacrima.camerax.R
 import com.lacrima.camerax.camera.CameraFragment.ScreenOrientationPair.*
 import com.lacrima.camerax.databinding.*
+import com.lacrima.camerax.utils.ANIMATION_FAST_MILLIS
+import com.lacrima.camerax.utils.ANIMATION_SLOW_MILLIS
 import com.lacrima.camerax.utils.Util.setUiWindowInsetsBottom
 import com.lacrima.camerax.utils.Util.toPixels
 import com.lacrima.camerax.utils.Util.afterMeasured
 import com.lacrima.camerax.utils.Util.returnStatusBar
-import com.lacrima.camerax.utils.Util.setUiWindowInsets
 import com.lacrima.camerax.utils.Util.simulateClick
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.abs
@@ -63,12 +60,12 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     private lateinit var activityResultLauncherRequestPermission: ActivityResultLauncher<String>
     private var screenOrientationPair: ScreenOrientationPair = ScreenOrientation0to0
     private var imageCapture: ImageCapture? = null
+
     private lateinit var binding: FragmentCameraBinding
     private lateinit var noCameraPermissionBinding: NoCameraPermissionViewBinding
     private lateinit var progressViewBinding: ProgressViewBinding
     private lateinit var cameraUnexpectedErrorBinding: CameraUnexpectedErrorViewBinding
-    //private lateinit var cameraControlsView: CameraControlsViewBinding
-  //  private lateinit var outputDirectory: File
+
     private lateinit var mainViewModel: MainViewModel
     private lateinit var windowLayoutInfo: WindowMetrics
     private var displayId: Int = -1
@@ -76,20 +73,13 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
     private var camera: Camera? = null
     private var bitmap: Bitmap? = null
-    // TODO: By default use auto! Change it later
     private var flashMode: Int = ImageCapture.FLASH_MODE_AUTO
     private var flippedHorizontally: Boolean = false
-    //private lateinit var makePhotoRotationAnimation: AnimatedVectorDrawable
     private lateinit var cameraSharedPreferences: SharedPreferences
     private lateinit var editor: SharedPreferences.Editor
-    private val paddingBottomOfButtons = 24.toPixels
     private var currentImageResourceFlashButton: Int = R.drawable.flash_auto_button_default
-
+    // Used when detecting tap to focus
     private val mainLoopHandler = Handler(Looper.getMainLooper())
-
-    private val displayManager by lazy {
-        requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-    }
 
     private lateinit var broadcastManager: LocalBroadcastManager
 
@@ -108,24 +98,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     /** Blocking camera operations are performed using this executor */
     private lateinit var cameraExecutor: ExecutorService
 
-//    /**
-//     * We need a display listener for orientation changes that do not trigger a configuration
-//     * change, for example if we choose to override config change in manifest or for 180-degree
-//     * orientation changes.
-//     */
-//    private val displayListener = object : DisplayManager.DisplayListener {
-//        override fun onDisplayAdded(displayId: Int) = Unit
-//        override fun onDisplayRemoved(displayId: Int) = Unit
-//        override fun onDisplayChanged(displayId: Int) = view?.let { view ->
-//            if (displayId == this@CameraFragment.displayId) {
-//                Timber.d("Rotation changed: ${view.display.rotation}")
-//                imageCapture?.targetRotation = view.display.rotation
-//                //imageAnalyzer?.targetRotation = view.display.rotation
-//
-//            }
-//        } ?: Unit
-//    }
-
+    @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         /*
@@ -138,7 +111,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         ) { isGranted ->
             if (isGranted) {
                 // Permission is granted. Continue the workflow
-               // noCameraPermissionBinding.root.isVisible = false
+                // noCameraPermissionBinding.root.isVisible = false
 
                 // Build UI controls
                 updateCameraUi()
@@ -152,11 +125,12 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
             }
 
         }
+        // Lock screen orientation to portrait (only in this fragment)
         requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         // Create Shared Preferences to store important values
-
-        cameraSharedPreferences = requireActivity().getSharedPreferences(APP_PREFERENCES, Context.MODE_PRIVATE)
+        cameraSharedPreferences = requireActivity()
+            .getSharedPreferences(APP_PREFERENCES, Context.MODE_PRIVATE)
 
         // Set SharedPreferences.Editor
         editor = cameraSharedPreferences.edit()
@@ -212,7 +186,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     /**
     Override a method from interface used in dialog for permission rationale
     to request permission to storage by clicking Yes button
-    */
+     */
     override fun onYesClick() {
         requestPermission()
     }
@@ -239,35 +213,12 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         binding.cameraFlashOnOffButton.isVisible = false
     }
 
-//    override fun onResume() {
-//        super.onResume()
-//        // Make sure that all permissions are still present, since the
-//        // user could have removed them while the app was in paused state.
-//        // Request camera permissions
-//        if (allPermissionsGranted()) {
-//           setUpCamera()
-//        } else {
-//            showNoAccess()
-//
-//            ActivityCompat.requestPermissions(
-//                requireActivity(), REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
-//            )
-//        }
-//
-//    }
-
-
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         // Inflate the layout for this fragment
         binding = FragmentCameraBinding.inflate(inflater, container, false)
-
-        val marginBottomOfButtons = 24.toPixels
-
-
 
         // We need to bind the root layout with our binder for external layout
         noCameraPermissionBinding = NoCameraPermissionViewBinding.bind(binding.root)
@@ -277,6 +228,8 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         cameraUnexpectedErrorBinding = CameraUnexpectedErrorViewBinding.bind(binding.root)
 
         // Set insets for buttons
+        val marginBottomOfButtons = 24.toPixels
+
         setUiWindowInsetsBottom(binding.cameraFlashOnOffButton, marginBottomOfButtons)
         setUiWindowInsetsBottom(binding.cameraCaptureButton, marginBottomOfButtons)
         setUiWindowInsetsBottom(binding.cameraFlipButton, marginBottomOfButtons)
@@ -323,137 +276,106 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
 
                     resetViewRotation(binding.cameraFlashOnOffButton)
 
-                    if (screenOrientation.first == MainViewModel.ScreenOrientation.Portrait
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.Portrait) {
+                    if (screenOrientation.first == Portrait
+                        && screenOrientation.second == Portrait
+                    ) {
                         // The app was opened in portrait. Don't rotate buttons.
                         screenOrientationPair = ScreenOrientation0to0
-                    } else if (screenOrientation.first == MainViewModel.ScreenOrientation.Landscape
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.Portrait){
+                    } else if (screenOrientation.first == Landscape
+                        && screenOrientation.second == Portrait
+                    ){
                         screenOrientationPair = ScreenOrientation90to0
+
+                        triggerButtonsAnimation(
+                            R.drawable.animated_vector_switch_camera_90_0,
+                            R.drawable.animated_vector_flash_on_90_0,
+                            R.drawable.animated_vector_flash_off_90_0,
+                            R.drawable.animated_vector_flash_auto_90_0
+                        )
                         Timber.d("Rotate buttons from 90 to 0")
-                        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_90_0)
-
-
-                        when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_auto_90_0)
-                            ImageCapture.FLASH_MODE_ON ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_on_90_0)
-                            ImageCapture.FLASH_MODE_OFF ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_off_90_0)
-                        }
-                        // Rotate buttons from 90 to 0
-                    } else if (screenOrientation.first == MainViewModel.ScreenOrientation.ReverseLandscape
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.Portrait){
+                    } else if (screenOrientation.first == ReverseLandscape
+                        && screenOrientation.second == Portrait
+                    ){
                         screenOrientationPair = ScreenOrientation270to0
+
+                        triggerButtonsAnimation(
+                            R.drawable.animated_vector_switch_camera_270_0,
+                            R.drawable.animated_vector_flash_on_270_0,
+                            R.drawable.animated_vector_flash_off_270_0,
+                            R.drawable.animated_vector_flash_auto_270_0
+                        )
                         Timber.d("Rotate buttons from 270 to 0")
-                        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_270_0)
-                     //   startImageButtonRotationAnimation(binding.cameraCaptureButton, R.drawable.animated_vector_make_photo_270_0)
-
-                        when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_auto_270_0)
-                            ImageCapture.FLASH_MODE_ON ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_on_270_0)
-                            ImageCapture.FLASH_MODE_OFF ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_off_270_0)
-                        }
-                        // Rotate buttons from 270 to 0
-                    } else if (screenOrientation.first == MainViewModel.ScreenOrientation.ReversePortrait
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.Landscape){
+                    } else if (screenOrientation.first == ReversePortrait
+                        && screenOrientation.second == Landscape
+                    ){
                         screenOrientationPair = ScreenOrientation180to90
+
+                        triggerButtonsAnimation(
+                            R.drawable.animated_vector_switch_camera_180_90,
+                            R.drawable.animated_vector_flash_on_180_90,
+                            R.drawable.animated_vector_flash_off_180_90,
+                            R.drawable.animated_vector_flash_auto_180_90
+                        )
                         Timber.d("Rotate buttons from 180 to 90")
-                        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_180_90)
-                     //   startImageButtonRotationAnimation(binding.cameraCaptureButton, R.drawable.animated_vector_make_photo_180_90)
-
-                        when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_auto_180_90)
-                            ImageCapture.FLASH_MODE_ON ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_on_180_90)
-                            ImageCapture.FLASH_MODE_OFF ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_off_180_90)
-                        }
-                        // Rotate buttons from 180 to 90
-                    } else if (screenOrientation.first == MainViewModel.ScreenOrientation.Portrait
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.Landscape){
+                    } else if (screenOrientation.first == Portrait
+                        && screenOrientation.second == Landscape
+                    ){
                         screenOrientationPair = ScreenOrientation0to90
-                        // Rotate buttons from 0 to 90
-                        Timber.d("Rotate buttons from 0 to 90")
-                        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_0_90)
-                      //  startImageButtonRotationAnimation(binding.cameraCaptureButton, R.drawable.animated_vector_make_photo_0_90)
 
-                        when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_auto_0_90)
-                            ImageCapture.FLASH_MODE_ON ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_on_0_90)
-                            ImageCapture.FLASH_MODE_OFF ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_off_0_90)
-                        }
-                    } else if (screenOrientation.first == MainViewModel.ScreenOrientation.Landscape
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.ReversePortrait){
+                        triggerButtonsAnimation(
+                            R.drawable.animated_vector_switch_camera_0_90,
+                            R.drawable.animated_vector_flash_on_0_90,
+                            R.drawable.animated_vector_flash_off_0_90,
+                            R.drawable.animated_vector_flash_auto_0_90
+                        )
+                        Timber.d("Rotate buttons from 0 to 90")
+                    } else if (screenOrientation.first == Landscape
+                        && screenOrientation.second == ReversePortrait
+                    ){
                         Timber.d("Rotate buttons from 90 to 180")
                         screenOrientationPair = ScreenOrientation90to180
-                        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_90_180)
-                     //   startImageButtonRotationAnimation(binding.cameraCaptureButton, R.drawable.animated_vector_make_photo_90_180)
 
-                        when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_auto_90_180)
-                            ImageCapture.FLASH_MODE_ON ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_on_90_180)
-                            ImageCapture.FLASH_MODE_OFF ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_off_90_180)
-                        }
-                        // Rotate buttons from 90 to 180
-                    } else if (screenOrientation.first == MainViewModel.ScreenOrientation.ReverseLandscape
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.ReversePortrait){
+                        triggerButtonsAnimation(
+                            R.drawable.animated_vector_switch_camera_90_180,
+                            R.drawable.animated_vector_flash_on_90_180,
+                            R.drawable.animated_vector_flash_off_90_180,
+                            R.drawable.animated_vector_flash_auto_90_180
+                        )
+                    } else if (screenOrientation.first == ReverseLandscape
+                        && screenOrientation.second == ReversePortrait
+                    ){
                         screenOrientationPair = ScreenOrientation270to180
-                        // Rotate buttons from 270 to 180
-                        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_270_180)
-                  //      startImageButtonRotationAnimation(binding.cameraCaptureButton, R.drawable.animated_vector_make_photo_270_180)
 
-                        when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_auto_270_180)
-                            ImageCapture.FLASH_MODE_ON ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_on_270_180)
-                            ImageCapture.FLASH_MODE_OFF ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_off_270_180)
-                        }
+                        triggerButtonsAnimation(
+                            R.drawable.animated_vector_switch_camera_270_180,
+                            R.drawable.animated_vector_flash_on_270_180,
+                            R.drawable.animated_vector_flash_off_270_180,
+                            R.drawable.animated_vector_flash_auto_270_180
+                        )
                         Timber.d("Rotate buttons from 270 to 180")
-                    } else if (screenOrientation.first == MainViewModel.ScreenOrientation.Portrait
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.ReverseLandscape){
+                    } else if (screenOrientation.first == Portrait
+                        && screenOrientation.second == ReverseLandscape
+                    ){
                         screenOrientationPair = ScreenOrientation0to270
-                        // Rotate buttons from 0 to 270
-                        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_0_270)
-                   //     startImageButtonRotationAnimation(binding.cameraCaptureButton, R.drawable.animated_vector_make_photo_0_270)
 
-                        when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_auto_0_270)
-                            ImageCapture.FLASH_MODE_ON ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_on_0_270)
-                            ImageCapture.FLASH_MODE_OFF ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_off_0_270)
-                        }
+                        triggerButtonsAnimation(
+                            R.drawable.animated_vector_switch_camera_0_270,
+                            R.drawable.animated_vector_flash_on_0_270,
+                            R.drawable.animated_vector_flash_off_0_270,
+                            R.drawable.animated_vector_flash_auto_0_270
+                        )
                         Timber.d("Rotate buttons from 0 to 270")
-                    } else if (screenOrientation.first == MainViewModel.ScreenOrientation.ReversePortrait
-                        && screenOrientation.second == MainViewModel.ScreenOrientation.ReverseLandscape){
+                    } else if (screenOrientation.first == ReversePortrait
+                        && screenOrientation.second == ReverseLandscape
+                    ){
                         screenOrientationPair = ScreenOrientation180to270
-                        // Rotate buttons from 180 to 270
-                        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_180_270)
-                  //      startImageButtonRotationAnimation(binding.cameraCaptureButton, R.drawable.animated_vector_make_photo_180_270)
 
-                        when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_auto_180_270)
-                            ImageCapture.FLASH_MODE_ON ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_on_180_270)
-                            ImageCapture.FLASH_MODE_OFF ->
-                                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, R.drawable.animated_vector_flash_off_180_270)
-                        }
+                        triggerButtonsAnimation(
+                            R.drawable.animated_vector_switch_camera_180_270,
+                            R.drawable.animated_vector_flash_on_180_270,
+                            R.drawable.animated_vector_flash_off_180_270,
+                            R.drawable.animated_vector_flash_auto_180_270
+                        )
                         Timber.d("Rotate buttons from 180 to 270")
                     }
                 }
@@ -465,15 +387,47 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         return binding.root
     }
 
+    /**
+     * Starts rotation animation of camera flip and flash mode buttons
+     */
+    private fun triggerButtonsAnimation(
+        cameraFlipImage: Int,
+        flashModeOnImage: Int,
+        flashModeOffImage: Int,
+        flashModeAutoImage:Int
+    ) {
+        startImageButtonRotationAnimation(binding.cameraFlipButton, cameraFlipImage)
+
+        when (flashMode) {
+            ImageCapture.FLASH_MODE_AUTO ->
+                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, flashModeAutoImage)
+            ImageCapture.FLASH_MODE_ON ->
+                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, flashModeOnImage)
+            ImageCapture.FLASH_MODE_OFF ->
+                startImageButtonRotationAnimation(binding.cameraFlashOnOffButton, flashModeOffImage)
+        }
+
+    }
+
+    /**
+     * Starts rotation animation of a single button
+     */
+    private fun startImageButtonRotationAnimation(imageButton: ImageButton, animationResource: Int) {
+        currentImageResourceFlashButton = animationResource
+
+        imageButton.setImageResource(animationResource)
+
+        val drawable = imageButton.drawable
+
+        if (drawable is AnimatedVectorDrawable) {
+            val animation: AnimatedVectorDrawable = drawable
+            animation.start()
+        }
+    }
+
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        Timber.d("onViewCreated is called")
-
-
-        // Every time the orientation of device changes, update rotation for use cases
-        //displayManager.registerDisplayListener(displayListener, null)
 
         broadcastManager = LocalBroadcastManager.getInstance(view.context)
 
@@ -481,7 +435,8 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         val filter = IntentFilter().apply { addAction(KEY_EVENT_ACTION) }
         broadcastManager.registerReceiver(volumeDownReceiver, filter)
 
-        windowLayoutInfo = WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(requireActivity())
+        windowLayoutInfo = WindowMetricsCalculator.getOrCreate()
+            .computeCurrentWindowMetrics(requireActivity())
 
         // Initialize our background executor
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -505,8 +460,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
 
     override fun onPause() {
         super.onPause()
-        Timber.d("onPause() is called. lensFacing is $lensFacing flashMode is $flashMode")
-
         // Update SharedPreferences
         editor.apply {
             putInt(APP_PREFERENCES_LENS_FACING, lensFacing)
@@ -550,81 +503,159 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                             ImageCapture.FLASH_MODE_AUTO -> {
                                 when (screenOrientationPair) {
                                     ScreenOrientation0to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.flash_off_button_default)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.flash_off_button_default
+                                            )
                                     ScreenOrientation0to90 -> {
-                                        Timber.d("ScreenOrientationPair is $screenOrientationPair")
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_off_90_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_off_90_0
+                                            )
                                     }
                                     ScreenOrientation0to270 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_off_0_270)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_off_0_270
+                                            )
                                     ScreenOrientation90to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_off_90_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_off_90_0
+                                            )
                                     ScreenOrientation90to180 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_off_90_180)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_off_90_180
+                                            )
                                     ScreenOrientation180to90 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_off_180_90)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_off_180_90
+                                            )
                                     ScreenOrientation180to270 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_off_180_270)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_off_180_270
+                                            )
                                     ScreenOrientation270to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_off_270_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_off_270_0
+                                            )
                                     ScreenOrientation270to180 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_off_270_180)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_off_270_180
+                                            )
                                 }
                                 ImageCapture.FLASH_MODE_OFF
                             }
                             ImageCapture.FLASH_MODE_OFF -> {
                                 when (screenOrientationPair) {
                                     ScreenOrientation0to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.flash_on_button_default)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.flash_on_button_default
+                                            )
                                     ScreenOrientation0to90 -> {
-                                        Timber.d("ScreenOrientationPair is $screenOrientationPair")
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_on_90_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_on_90_0
+                                            )
                                     }
                                     ScreenOrientation0to270 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_on_0_270)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_on_0_270
+                                            )
                                     ScreenOrientation90to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_on_90_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_on_90_0
+                                            )
                                     ScreenOrientation90to180 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_on_90_180)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_on_90_180
+                                            )
                                     ScreenOrientation180to90 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_on_180_90)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_on_180_90
+                                            )
                                     ScreenOrientation180to270 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_on_180_270)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_on_180_270
+                                            )
                                     ScreenOrientation270to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_on_270_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_on_270_0
+                                            )
                                     ScreenOrientation270to180 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_on_270_180)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_on_270_180
+                                            )
                                 }
                                 ImageCapture.FLASH_MODE_ON
                             }
                             else -> {
                                 when (screenOrientationPair) {
                                     ScreenOrientation0to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.flash_auto_button_default)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.flash_auto_button_default
+                                            )
                                     ScreenOrientation0to90 -> {
-                                        Timber.d("ScreenOrientationPair is $screenOrientationPair")
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_auto_90_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_auto_90_0
+                                            )
                                     }
                                     ScreenOrientation0to270 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_auto_0_270)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_auto_0_270
+                                            )
                                     ScreenOrientation90to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_auto_90_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_auto_90_0
+                                            )
                                     ScreenOrientation90to180 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_auto_90_180)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_auto_90_180
+                                            )
                                     ScreenOrientation180to90 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_auto_180_90)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_auto_180_90
+                                            )
                                     ScreenOrientation180to270 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_auto_180_270)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_auto_180_270
+                                            )
                                     ScreenOrientation270to0 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_auto_270_0)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_auto_270_0
+                                            )
                                     ScreenOrientation270to180 ->
-                                        binding.cameraFlashOnOffButton.setImageResource(R.drawable.animated_vector_flash_auto_270_180)
+                                        binding.cameraFlashOnOffButton
+                                            .setImageResource(
+                                                R.drawable.animated_vector_flash_auto_270_180
+                                            )
                                 }
 
                                 ImageCapture.FLASH_MODE_AUTO
                             }
                         }
-                            bindCameraUseCases()
+                        bindCameraUseCases()
 
                     } else {
                         binding.cameraFlashOnOffButton.isEnabled = false
@@ -642,40 +673,27 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                 showNoAccess()
                 requestPermission()
             }
-            }
         }
-
-
-
+        }
     }
 
+    // Must change the view rotation, if it was tapped, when the orientation wasn't portrait
     private fun changeViewRotation(view: View) {
         when (mainViewModel.screenOrientationState.value.second) {
-            MainViewModel.ScreenOrientation.Portrait -> view.rotation = 0.0f
-            MainViewModel.ScreenOrientation.ReversePortrait -> view.rotation = 180.0f
-            MainViewModel.ScreenOrientation.Landscape -> view.rotation = 90.0f
-            MainViewModel.ScreenOrientation.ReverseLandscape -> view.rotation = 270.0f
+            Portrait -> view.rotation = 0.0f
+            ReversePortrait -> view.rotation = 180.0f
+            Landscape -> view.rotation = 90.0f
+            ReverseLandscape -> view.rotation = 270.0f
         }
-
-       // setUiWindowInsetsBottom(view, paddingBottomOfButtons)
     }
-
+    // The view's rotation must be reset before rotation animation
     private fun resetViewRotation(view: View) {
         view.rotation = 0.0f
-    }
-
-    private fun makeSelector(): StateListDrawable {
-        val res = StateListDrawable()
-        res.addState(IntArray(android.R.attr.state_focused), ColorDrawable(Color.BLUE))
-        res.addState(IntArray(android.R.attr.state_pressed), ColorDrawable(Color.GREEN))
-        //res.addState(IntArray(), ColorDrawable(Color.GREEN))
-        return res
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         // Unregister the broadcast receivers and listeners
-      //  displayManager.unregisterDisplayListener(displayListener)
         broadcastManager.unregisterReceiver(volumeDownReceiver)
 
         // Shut down our background executor
@@ -691,35 +709,23 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         // Get a stable reference of the modifiable image capture use case
         val imageCapture = imageCapture ?: return
 
-        imageCapture.camera?.cameraInfo?.hasFlashUnit()
-
         val executor = ContextCompat.getMainExecutor(requireActivity())
 
-        // Set up image capture listener, which is triggered after photo has
-        // been taken
-        // This method provides an in-memory buffer of the captured image
+        /*
+        Set up image capture listener, which is triggered after photo has been taken
+        This method provides an in-memory buffer of the captured image
+         */
         imageCapture.takePicture(executor, object :
             ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 super.onCaptureSuccess(image)
                 Timber.d("Image is captured, but not saved")
 
-
-                    //.setAttribute(attribute, "${image.imageInfo.rotationDegrees.toFloat()}"))
-
-                //mainViewModel.setImageCaptured(image)
-
                 viewLifecycleOwner.lifecycleScope.launch {
-//                    image.imageInfo.populateExifData(ExifData.builderForDevice().removeAttribute("ORIENTATION_ROTATE_90"))
-//                    Timber.d("Exif: ${image.imageInfo.rotationDegrees}")
-
                     mainViewModel.getBitmap(image, flippedHorizontally)
-                   // val savedUri = mainViewModel.saveImageToInternalStorage(bitmap, outputDirectory)
-                   // Timber.d("File saved to internal storage. SavedUri is $savedUri")
                     findNavController()
                         .navigate(CameraFragmentDirections
                             .actionCameraFragmentToPhotoFragment())
-
                     Timber.d("Ended photo")
                     mainViewModel.makePhotoStateEnded()
 
@@ -730,15 +736,14 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                 super.onError(exception)
                 Timber.d("Photo capture failed: ${exception.message}")
                 progressViewBinding.progressBar.isVisible = false
-               Toast.makeText(context, "An unexpected error occurred while making the photo.", Toast.LENGTH_SHORT).show()
-                // Remove spinner if it's still displayed
-
-
-               // mainLoopHandler.removeCallbacksAndMessages(null)
-
+                Toast.makeText(
+                    context,
+                    "An unexpected error occurred while making the photo.",
+                    Toast.LENGTH_SHORT)
+                    .show()
             }
         })
-        
+
         // We can only change the foreground Drawable using API level 23+ API
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 
@@ -754,55 +759,38 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     }
 
     /** Initialize CameraX, and prepare to bind the camera use cases  */
+    @SuppressLint("RestrictedApi")
     private fun setUpCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireActivity())
 
+        cameraProviderFuture.addListener( {
+            // Used to bind the lifecycle of cameras to the lifecycle owner
+            cameraProvider = cameraProviderFuture.get()
 
-                val cameraProviderFuture = ProcessCameraProvider.getInstance(requireActivity())
+            // Disable Flash button if the flash unit is not available
+            binding.cameraFlashOnOffButton.isEnabled =
+                imageCapture?.camera?.cameraInfo?.hasFlashUnit() != false
 
+            lensFacing = if (cameraSharedPreferences.contains(APP_PREFERENCES_LENS_FACING)) {
+                cameraSharedPreferences
+                    .getInt(APP_PREFERENCES_LENS_FACING, CameraSelector.LENS_FACING_BACK)
+            } else {
+                when {
+                    hasBackCamera() -> CameraSelector.LENS_FACING_BACK
+                    hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
+                    else -> throw IllegalStateException("Back and front camera are unavailable")
+                }
+            }
 
+            // Enable or disable switching between cameras
+            updateCameraSwitchButton()
 
+            // Build and bind the camera use cases
+            bindCameraUseCases()
 
-//        // Get screen metrics used to setup camera for full screen resolution
-//        val metrics = windowLayoutInfo.bounds
-//        Timber.d("Screen metrics: ${metrics.width()} x ${metrics.height()}")
-//
-//        val screenAspectRatio = aspectRatio(metrics.width(), metrics.height())
-//        Timber.d("Preview aspect ratio: $screenAspectRatio")
-//
-//        //val rotation = binding.viewFinder.display.rotation
+        }, ContextCompat.getMainExecutor(requireActivity()))
 
-                cameraProviderFuture.addListener( {
-                    // Used to bind the lifecycle of cameras to the lifecycle owner
-                    cameraProvider = cameraProviderFuture.get()
-
-                    // Try to get selected camera from SharedPreferences or depending on the available cameras
-//                    lensFacing = when {
-//                        hasBackCamera() -> CameraSelector.LENS_FACING_BACK
-//                        hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
-//                        else -> throw IllegalStateException("Back and front camera are unavailable")
-//                    }
-
-                    lensFacing = if (cameraSharedPreferences.contains(APP_PREFERENCES_LENS_FACING)) {
-                        cameraSharedPreferences
-                            .getInt(APP_PREFERENCES_LENS_FACING, CameraSelector.LENS_FACING_BACK)
-                    } else {
-                        when {
-                            hasBackCamera() -> CameraSelector.LENS_FACING_BACK
-                            hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
-                            else -> throw IllegalStateException("Back and front camera are unavailable")
-                        }
-                    }
-
-                    // Enable or disable switching between cameras
-                    updateCameraSwitchButton()
-
-
-                    // Build and bind the camera use cases
-                    bindCameraUseCases()
-
-                }, ContextCompat.getMainExecutor(requireActivity()))
-
-        }
+    }
 
     /** Enabled or disabled a button to switch cameras depending on the available cameras */
     private fun updateCameraSwitchButton() {
@@ -815,19 +803,16 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
 
     /** Returns true if the device has an available back camera. False otherwise */
     private fun hasBackCamera(): Boolean {
-        Timber.d("hasBackCamera() returned ${cameraProvider?.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)}")
         return cameraProvider?.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) ?: false
     }
 
     /** Returns true if the device has an available front camera. False otherwise */
     private fun hasFrontCamera(): Boolean {
-        Timber.d("hasFrontCamera() returned ${cameraProvider?.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)}")
         return cameraProvider?.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) ?: false
     }
 
     private fun bindCameraUseCases() {
 
-       // val cameraProviderFuture = ProcessCameraProvider.getInstance(requireActivity())
         // Get screen metrics used to setup camera for full screen resolution
         val metrics = windowLayoutInfo.bounds
         Timber.d("Screen metrics: ${metrics.width()} x ${metrics.height()}")
@@ -841,9 +826,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         val cameraProvider = cameraProvider
             ?: throw IllegalStateException("Camera initialization failed.")
 
-        // Select back camera as a default
-       // val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
         // CameraSelector
         val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
 
@@ -854,10 +836,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
             // Set initial target rotation
             .setTargetRotation(rotation)
             .build()
-//            .also {
-//                it.setSurfaceProvider(binding.viewFinder.surfaceProvider)
-//                //it.setSurfaceProvider(binding.viewFinder.surfaceProvider)
-//            }
+
         // ImageCapture
         imageCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
@@ -865,10 +844,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
             .setTargetRotation(rotation)
             .setFlashMode(flashMode)
             .build()
-
-     //   val flashMode = imageCapture?.flashMode
-
-
 
         // Unbind use cases before rebinding
         cameraProvider.unbindAll()
@@ -891,7 +866,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     @SuppressLint("ClickableViewAccessibility")
     private fun setTapToFocus(camera: Camera) {
         binding.viewFinder.afterMeasured {
-           // binding.focus.isVisible = !noCameraPermissionBinding.noCameraPermissionImage.isVisible
             binding.viewFinder.setOnTouchListener { _, motionEvent ->
                 val factory: MeteringPointFactory = SurfaceOrientedMeteringPointFactory(
                     binding.viewFinder.width.toFloat(), binding.viewFinder.height.toFloat()
@@ -907,10 +881,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                         // Cancel removeFocusResultAfterDelay(), when another point is tapped
                         mainLoopHandler.removeCallbacksAndMessages(null)
                         binding.focus.setImageResource(R.drawable.focus_started)
-//                        val factory: MeteringPointFactory = SurfaceOrientedMeteringPointFactory(
-//                            binding.viewFinder.width.toFloat(), binding.viewFinder.height.toFloat()
-//                        )
-//                        val autoFocusPoint = factory.createPoint(motionEvent.x, motionEvent.y)
                         try {
                             val focusListenableFuture = camera.cameraControl.startFocusAndMetering(
                                 FocusMeteringAction.Builder(
@@ -919,16 +889,8 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                                 ).apply {
                                     // Focus only when the user tap the preview
                                     disableAutoCancel()
-                                    //setAutoCancelDuration(3000, TimeUnit.MILLISECONDS)
                                 }.build()
                             )
-
-                           // binding.focus.isVisible = !noCameraPermissionBinding.noCameraPermissionImage.isVisible
-
-                           // binding.focus.setImageResource(R.drawable.focus_started)
-
-
-
                             focusListenableFuture.addListener(
                                 {
                                     var result: FocusMeteringResult? = null
@@ -974,17 +936,10 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
 
     private fun removeFocusResultAfterDelay() {
         Timber.d("Focus is delayed")
-
         mainLoopHandler.postDelayed({
             binding.focus.setImageResource(R.drawable.focus_transparent)
         }, TAP_TO_FOCUS_DELAY)
     }
-
-//    private fun removeFocusResultAfterDelay2() {
-//        Timber.d("Focus is delayed")
-//        val _isFocusFrameTransparent = MutableStateFlow<Boolean>(false)
-//        val isFocusFrameTransparent: StateFlow<Boolean> = _isFocusFrameTransparent
-//    }
 
     private fun setFocusPlaceAndVisibility(x: Float, y: Float) {
         binding.focus.x = x
@@ -998,57 +953,29 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     private val orientationEventListener by lazy {
         object : OrientationEventListener(requireActivity()) {
             override fun onOrientationChanged(orientation: Int) {
-//                if (orientation == UNKNOWN_ORIENTATION) {
-//                    return
-//                }
-
                 val rotation = when (orientation) {
                     in 45 until 135 -> {
-                        Timber.d("Rotation 270")
-                        mainViewModel.updateScreenOrientation(MainViewModel.ScreenOrientation.ReverseLandscape)
+                        mainViewModel.updateScreenOrientation(ReverseLandscape)
                         Surface.ROTATION_270
                     }
                     in 135 until 225 -> {
-                        Timber.d("Rotation 180")
-                        mainViewModel.updateScreenOrientation(MainViewModel.ScreenOrientation.ReversePortrait)
+                        mainViewModel.updateScreenOrientation(ReversePortrait)
                         Surface.ROTATION_180
                     }
                     in 225 until 315 -> {
-                        Timber.d("Rotation 90")
-                        mainViewModel.updateScreenOrientation(MainViewModel.ScreenOrientation.Landscape)
+                        mainViewModel.updateScreenOrientation(Landscape)
                         Surface.ROTATION_90
                     }
                     else -> {
-                        mainViewModel.updateScreenOrientation(MainViewModel.ScreenOrientation.Portrait)
-                        Timber.d("Rotation 0")
+                        mainViewModel.updateScreenOrientation(Portrait)
                         Surface.ROTATION_0
                     }
                 }
-
-                //imageAnalysis.targetRotation = rotation
+                // Update the target rotation of imageCapture
                 imageCapture?.targetRotation = rotation
                 Timber.d("imageCapture?.targetRotation is ${imageCapture?.targetRotation}")
             }
         }
-    }
-
-    fun anim() {
-
-//        ObjectAnimator.ofFloat(binding.cameraFlipButton, "rotation", 0f, 90f)
-//
-//
-//            .apply {
-//            duration = 1100
-//            start()
-//        }
-
-        //ObjectAnimator.ofFloat(binding.cameraCaptureButton, "rotation", 0f, 360f).start()
-
-//        val rotation = RotateAnimation(0f, 90f, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
-//       // val rotation = RotateAnimation(0f, 90f, 24f, 24f)
-//        rotation.duration = 1100
-//        binding.cameraCaptureButton.startAnimation(rotation)
-
     }
 
     override fun onStart() {
@@ -1072,76 +999,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         orientationEventListener.disable()
     }
 
-
-
-    private fun getOutputDirectory(): File {
-        return requireActivity().cacheDir
-
-
-
-//        val mediaDir = requireActivity().externalMediaDirs.firstOrNull()?.let {
-//            File(it, resources.getString(R.string.app_name)).apply { mkdirs() } }
-//        return if (mediaDir != null && mediaDir.exists())
-//            mediaDir else requireActivity().filesDir
-    }
-
-//    override fun onConfigurationChanged(newConfig: Configuration) {
-//        super.onConfigurationChanged(newConfig)
-//
-////        binding.cameraCaptureButton.apply {
-////            setBackgroundResource(R.drawable.make_photo_button_default)
-////            makePhotoRotatinAnimation = background as AnimatedVectorDrawable
-////        }
-//
-////
-////        makePhotoRotatinAnimation.start()
-//      //  binding.cameraCaptureButton.setImageResource(R.drawable.animated_vector_make_photo)
-//
-//        //startImageButtonRotationAnimation(binding.cameraCaptureButton, R.drawable.animated_vector_make_photo_0_90)
-//
-//        startImageButtonRotationAnimation(binding.cameraFlipButton, R.drawable.animated_vector_switch_camera_180_90)
-//
-//
-//        // Rebind the camera with the updated display metrics
-//        bindCameraUseCases()
-//    }
-
-    private fun startImageButtonRotationAnimation(imageButton: ImageButton, animationResource: Int) {
-        currentImageResourceFlashButton = animationResource
-
-        imageButton.setImageResource(animationResource)
-
-        val drawable = imageButton.drawable
-
-        if (drawable is AnimatedVectorDrawable) {
-            val animation: AnimatedVectorDrawable = drawable
-//            animation.changingConfigurations.rangeTo(0)
-//            animation.start()
-
-
-            animation.apply {
-             //   rotationMatrix(270f, 12.0f, 12.0f)
-                start()
-            }
-        }
-    }
-
-//    override fun onRequestPermissionsResult(
-//        requestCode: Int, permissions: Array<String>, grantResults:
-//        IntArray) {
-//        //super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-//        if (requestCode == REQUEST_CODE_PERMISSIONS) {
-//            if (allPermissionsGranted()) {
-//                setUpCamera()
-//            } else {
-//                Toast.makeText(requireActivity(),
-//                    "Permissions not granted by the user.",
-//                    Toast.LENGTH_SHORT).show()
-//                //finish()
-//            }
-//        }
-//    }
-
     private fun observeCameraErrorStates(cameraInfo: CameraInfo) {
         cameraInfo.cameraState.observe(viewLifecycleOwner) { cameraState ->
             run {
@@ -1149,7 +1006,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                     CameraState.Type.OPEN -> {
                         if (cameraUnexpectedErrorBinding.cameraUnexpectedErrorImage.isVisible
                             || noCameraPermissionBinding.noCameraPermissionImage.isVisible) {
-                                // Remove any placeholders, if the camera is opened
+                            // Remove any placeholders, if the camera is opened
                             showAccess()
                         }
                     }
@@ -1227,7 +1084,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     }
 
     companion object {
-        const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
         private const val TAP_TO_FOCUS_DELAY = 1600L
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
         private const val RATIO_16_9_VALUE = 16.0 / 9.0
@@ -1248,6 +1104,5 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         object ScreenOrientation270to0 : ScreenOrientationPair()
         object ScreenOrientation270to180 : ScreenOrientationPair()
     }
-
 
 }

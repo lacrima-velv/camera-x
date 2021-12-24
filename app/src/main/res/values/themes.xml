@@ -17,4 +17,13 @@
     </style>
 
     <style name="Widget.Theme.Camerax.AppBar" parent="ThemeOverlay.Material3.Dark"/>
+
+    <style name="Theme.CameraX.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/purple_900</item>
+<!--        Use windowSplashScreenAnimatedIcon to add either a drawable or an-->
+<!--        animated drawable. One of these is required.-->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+<!--        Set the theme of the Activity that directly follows your splash screen.-->
+        <item name="postSplashScreenTheme">@style/Theme.CameraX</item>
+    </style>
 </resources>

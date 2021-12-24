@@ -67,4 +67,6 @@ dependencies {
     implementation "androidx.window:window:$window_manager_version"
 
     implementation "com.jakewharton.timber:timber:$timber_version"
+
+    implementation "androidx.core:core-splashscreen:$splashscreen_version"
 }

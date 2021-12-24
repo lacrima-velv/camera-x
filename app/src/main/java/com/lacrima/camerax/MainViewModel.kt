@@ -10,33 +10,18 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.camera.core.ImageProxy
-import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
+import com.lacrima.camerax.MainViewModel.ScreenOrientation.Portrait
 import com.lacrima.camerax.utils.Util.flipHorizontally
 import com.lacrima.camerax.utils.Util.rotate
-import com.lacrima.camerax.camera.CameraFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
-import java.text.SimpleDateFormat
-import java.util.*
 
 class MainViewModel(application: Application): AndroidViewModel(application) {
-    private val _imageCaptured = MutableStateFlow<ImageProxy?>(null)
-    val imageCaptured: StateFlow<ImageProxy?>
-        get() = _imageCaptured
-
-    fun setImageCaptured(imageProxy: ImageProxy) {
-        _imageCaptured.value = imageProxy
-    }
 
     private val _bitmap = MutableStateFlow<Bitmap?>(null)
     val bitmap: StateFlow<Bitmap?>
@@ -68,14 +53,15 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
         object StateEnded: PhotoState()
     }
 
-    private val _screenOrientationState = MutableStateFlow<Pair<ScreenOrientation, ScreenOrientation>>(Pair(ScreenOrientation.Portrait, ScreenOrientation.Portrait))
+    // The Pair of rotations is used to get the previous screen orientation
+    private val _screenOrientationState =
+        MutableStateFlow<Pair<ScreenOrientation, ScreenOrientation>>(Pair(Portrait, Portrait))
     val screenOrientationState: StateFlow<Pair<ScreenOrientation, ScreenOrientation>>
         get() = _screenOrientationState
 
     fun updateScreenOrientation(newScreenOrientation: ScreenOrientation) {
-        _screenOrientationState.value = Pair(_screenOrientationState.value.second, newScreenOrientation)
-        Timber.d("_screenOrientationState.value.first is ${_screenOrientationState.value.first}" +
-                "_screenOrientationState.value.second is ${_screenOrientationState.value.second}")
+        _screenOrientationState.value =
+            Pair(_screenOrientationState.value.second, newScreenOrientation)
     }
 
     sealed class ScreenOrientation {
@@ -85,13 +71,8 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
         object ReverseLandscape: ScreenOrientation()
     }
 
-    init {
-        viewModelScope.launch {
-            imageCaptured.collectLatest { }
-        }
-    }
-
-    suspend fun getBitmap(image: ImageProxy?, isFlippedHorizontally: Boolean = false) = withContext(Dispatchers.IO) {
+    suspend fun getBitmap(image: ImageProxy?, isFlippedHorizontally: Boolean = false)
+    = withContext(Dispatchers.IO) {
         val imageProxy: ImageProxy? = image
         // Get the array of pixel planes for this Image
         val buffer = imageProxy?.planes?.get(0)?.buffer
@@ -107,31 +88,6 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
 
         _bitmap.value = bitmap
         imageProxy?.close()
-    }
-
-    fun recycleBitmap() {
-        _bitmap.value?.recycle()
-    }
-
-    suspend fun getBitmap() = withContext(Dispatchers.IO) {
-        val imageProxy: ImageProxy? = imageCaptured.value
-        Timber.d("imageProxy is $imageProxy")
-        val buffer = imageProxy?.planes?.get(0)?.buffer
-        val bytes: ByteArray? = buffer?.capacity()?.let { ByteArray(it) }
-        if (bytes != null) {
-            buffer.get(bytes)
-        }
-        val bitmap = bytes?.size?.let { BitmapFactory.decodeByteArray(bytes, 0, it, null) }
-//            ?.rotate(
-//            imageProxy?.imageInfo?.rotationDegrees?.toFloat() ?: 0f
-//        )
-        Timber.d("Bitmap is $bitmap")
-        _bitmap.value = bitmap
-        imageProxy?.close()
-    }
-
-    fun updateBitmapValue(bitmap: Bitmap?) {
-        _bitmap.value = bitmap
     }
 
     fun saveImageToExternalStorage(
@@ -165,7 +121,11 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
                 if (bitmap?.compress(format, 100, it) != true)
                     throw IOException("Failed to save bitmap.")
             } ?: throw IOException("Failed to open output stream.")
-            Toast.makeText(getApplication<Application>().applicationContext, "Successfully saved an image", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                getApplication<Application>().applicationContext,
+                "Successfully saved an image",
+                Toast.LENGTH_SHORT)
+                .show()
         } catch (exc: IOException) {
             imageContentUri?.let { orphanUri ->
                 // Don't leave an orphan entry in the MediaStore

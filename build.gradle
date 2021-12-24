@@ -9,6 +9,7 @@ buildscript {
         scale_image_view_version = '3.14.0'
         window_manager_version = '1.0.0-beta04'
         android_material_version = '1.6.0-alpha01'
+        splashscreen_version = '1.0.0-alpha01'
     }
 
     dependencies {
