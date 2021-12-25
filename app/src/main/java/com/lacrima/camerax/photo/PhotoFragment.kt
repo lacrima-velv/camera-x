@@ -18,7 +18,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.davemorrissey.labs.subscaleview.ImageSource
 import com.lacrima.camerax.MainViewModel
-import com.lacrima.camerax.R
 import com.lacrima.camerax.databinding.FragmentPhotoBinding
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -31,11 +30,6 @@ import com.lacrima.camerax.photo.permissiondialogs.DeniedPermissionStorageShowRa
 import com.lacrima.camerax.utils.Util.removeStatusBar
 import kotlinx.coroutines.flow.collectLatest
 
-/**
- * A simple [Fragment] subclass.
- * Use the [PhotoFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class PhotoFragment : Fragment(), DialogSaveImageClickListener {
 
     private lateinit var activityResultLauncherRequestPermission: ActivityResultLauncher<String>
@@ -86,7 +80,7 @@ class PhotoFragment : Fragment(), DialogSaveImageClickListener {
      */
     private fun showDeniedPermissionShowRationale() {
         val dialog = DeniedPermissionStorageShowRationaleFragment()
-        dialog.show(childFragmentManager, "WriteExternalStorageExplanation")
+        dialog.show(childFragmentManager, "WriteExternalStorageRationale")
     }
 
     override fun onCreateView(

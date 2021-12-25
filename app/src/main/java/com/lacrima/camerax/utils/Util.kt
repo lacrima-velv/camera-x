@@ -96,10 +96,7 @@ object Util {
     fun Activity.returnStatusBar() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val controller = window.insetsController
-            if (controller != null) {
-                //controller.show(WindowInsets.Type.navigationBars())
-                controller.show(WindowInsets.Type.statusBars())
-            }
+            controller?.show(WindowInsets.Type.statusBars())
         } else {
             window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
         }

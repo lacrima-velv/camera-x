@@ -25,20 +25,23 @@
         android:layout_height="wrap_content"
         android:background="@color/transparent"
         android:src="@drawable/cancel_button_selector"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="@dimen/margin_large"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/save_as"/>
+        app:layout_constraintEnd_toStartOf="@id/save_as"
+        android:contentDescription="@string/cancel" />
+
     <ImageButton
         android:id="@+id/save_as"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="@dimen/margin_large"
         android:src="@drawable/save_button_selector"
         android:background="@color/transparent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@id/cancel"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        android:contentDescription="@string/save_image_as" />
 
     <include layout="@layout/cannot_display_image_view" />
 

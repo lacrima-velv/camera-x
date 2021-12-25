@@ -1,10 +1,11 @@
-package com.example.gallery.permissiondialogs
+package com.lacrima.camerax.camera.permissiondialogs
 
 import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.lacrima.camerax.R
 
 class DeniedPermissionCameraShowRationaleFragment : DialogFragment() {
 
@@ -28,12 +29,12 @@ class DeniedPermissionCameraShowRationaleFragment : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         return MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Permission to camera is required")
-            .setMessage("Photos can't be made until permission to camera is granted. Would you like to grant the permission?")
-            .setPositiveButton("Yes") { _, _ ->
+            .setTitle(getString(R.string.denied_camera_permission_rationale_title))
+            .setMessage(getString(R.string.denied_camera_permission_rationale_body))
+            .setPositiveButton(getString(R.string.yes)) { _, _ ->
                 listener.onYesClick()
             }
-            .setNegativeButton("No, thanks") {
+            .setNegativeButton(getString(R.string.no_thanks)) {
                     dialog, _ -> dialog.dismiss()
             }
             .show()

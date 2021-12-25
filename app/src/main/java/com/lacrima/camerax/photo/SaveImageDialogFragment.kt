@@ -1,21 +1,21 @@
 package com.lacrima.camerax.photo
 
+import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
+import android.widget.Button
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
 import com.lacrima.camerax.MainViewModel
-import com.lacrima.camerax.databinding.FragmentSaveImageDialogBinding
-import timber.log.Timber
+import com.lacrima.camerax.R
 
 class SaveImageDialogFragment : DialogFragment() {
 
-    private lateinit var binding: FragmentSaveImageDialogBinding
     private lateinit var listenerSaveImage: DialogSaveImageClickListener
     private lateinit var mainViewModel: MainViewModel
 
@@ -37,40 +37,6 @@ class SaveImageDialogFragment : DialogFragment() {
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        binding = FragmentSaveImageDialogBinding.inflate(inflater, container, false)
-
-        mainViewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
-
-        binding.cancelButton.setOnClickListener {
-            this.dismiss()
-        }
-
-        // Initially disable Save button if there's no image name entered
-        binding.saveButton.isEnabled = binding.enterNameInput.text?.isNotEmpty() == true
-
-        binding.enterNameInput
-            .addTextChangedListener(textWatcherForInputImageNameField(binding.saveButton))
-
-        binding.saveButton.setOnClickListener {
-            if (binding.enterNameInput.text?.isNotEmpty() == true) {
-                /*
-                Also save its name to view model, so the user will be able to save the image with
-                this name after permission denial and then changing his mind
-                 */
-                mainViewModel.setImageName(binding.enterNameInput.text.toString())
-                listenerSaveImage.onSaveClick(binding.enterNameInput.text.toString())
-                this.dismiss()
-            }
-        }
-
-        return binding.root
-    }
-
     private fun textWatcherForInputImageNameField(view: View) = object : TextWatcher {
         override fun beforeTextChanged(charSequence: CharSequence?, p1: Int, p2: Int, p3: Int) {
             view.isEnabled = charSequence != null && charSequence.isNotEmpty()
@@ -82,4 +48,41 @@ class SaveImageDialogFragment : DialogFragment() {
 
         override fun afterTextChanged(p0: Editable?) { }
     }
+
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        val builder = MaterialAlertDialogBuilder(requireActivity())
+        val inflater = requireActivity().layoutInflater
+        val view = inflater.inflate(R.layout.fragment_save_image_dialog, null)
+        builder.setView(view)
+
+        mainViewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
+
+        val saveButton = view.findViewById<Button>(R.id.save_button)
+        val cancelButton = view.findViewById<Button>(R.id.cancel_button)
+        val enterNameInput = view.findViewById<TextInputEditText>(R.id.enter_name_input)
+
+        cancelButton.setOnClickListener {
+            this.dismiss()
+        }
+
+        // Initially disable Save button if there's no image name entered
+        saveButton.isEnabled = enterNameInput.text?.isNotEmpty() == true
+
+        enterNameInput.addTextChangedListener(textWatcherForInputImageNameField(saveButton))
+
+        saveButton.setOnClickListener {
+            if (enterNameInput.text?.isNotEmpty() == true) {
+                /*
+                Also save its name to view model, so the user will be able to save the image with
+                this name after permission denial and then changing his mind
+                 */
+                mainViewModel.setImageName(enterNameInput.text.toString())
+                listenerSaveImage.onSaveClick(enterNameInput.text.toString())
+                this.dismiss()
+            }
+        }
+
+        return builder.create()
+    }
+
 }

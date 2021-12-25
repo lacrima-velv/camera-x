@@ -123,7 +123,8 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
             } ?: throw IOException("Failed to open output stream.")
             Toast.makeText(
                 getApplication<Application>().applicationContext,
-                "Successfully saved an image",
+                getApplication<Application>().applicationContext
+                    .getString(R.string.successfully_saved_image),
                 Toast.LENGTH_SHORT)
                 .show()
         } catch (exc: IOException) {

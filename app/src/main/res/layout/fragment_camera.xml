@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:keepScreenOn="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".camera.CameraFragment">
@@ -10,37 +11,40 @@
         android:id="@+id/camera_capture_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="@dimen/margin_large"
         android:background="@drawable/focus_transparent"
         android:elevation="2dp"
         android:src="@drawable/make_photo_button_selector"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/camera_flash_on_off_button"
-        app:layout_constraintStart_toEndOf="@id/camera_flip_button" />
+        app:layout_constraintStart_toEndOf="@id/camera_flip_button"
+        android:contentDescription="@string/take_photo_description" />
 
     <ImageButton
         android:id="@+id/camera_flip_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="@dimen/margin_large"
         android:background="?attr/selectableItemBackground"
         android:elevation="2dp"
         android:src="@drawable/camera_switch_button_selector"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/camera_capture_button"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        android:contentDescription="@string/flip_camera_description" />
 
     <ImageButton
         android:id="@+id/camera_flash_on_off_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="@dimen/margin_large"
         android:background="?attr/selectableItemBackground"
         android:elevation="2dp"
         android:src="@drawable/flash_auto_button_default"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/camera_capture_button" />
+        app:layout_constraintStart_toEndOf="@id/camera_capture_button"
+        android:contentDescription="@string/flash_on_off_description" />
 
     <ImageView
         android:id="@+id/focus"
@@ -52,9 +56,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!--    app:scaleType="fitCenter"-->
+        app:layout_constraintTop_toTopOf="parent"
+        android:contentDescription="@string/tap_to_focus_description" />
 
     <androidx.camera.view.PreviewView
         android:id="@+id/viewFinder"
@@ -65,18 +68,10 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!--    <androidx.camera.view.PreviewView-->
-    <!--        android:id="@+id/viewFinder"-->
-    <!--        android:layout_width="match_parent"-->
-    <!--        android:layout_height="match_parent" />-->
-
     <include layout="@layout/no_camera_permission_view" />
 
     <include layout="@layout/camera_unexpected_error_view" />
 
     <include layout="@layout/progress_view" />
-
-
-    <!--    <include layout="@layout/camera_controls_view" />-->
 
 </androidx.constraintlayout.widget.ConstraintLayout>

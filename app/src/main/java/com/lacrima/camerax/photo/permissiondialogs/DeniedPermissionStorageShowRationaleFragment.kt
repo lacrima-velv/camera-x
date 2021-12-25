@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Bundle
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.lacrima.camerax.R
 
 class DeniedPermissionStorageShowRationaleFragment : DialogFragment() {
 
@@ -28,12 +29,12 @@ class DeniedPermissionStorageShowRationaleFragment : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         return MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Permission to write into external storage is required")
-            .setMessage("The photo can't be saved until permission to write into external storage is granted. Would you like to grant the permission?")
-            .setPositiveButton("Yes") { _, _ ->
+            .setTitle(getString(R.string.denied_storage_permission_rationale_title))
+            .setMessage(getString(R.string.denied_storage_permission_rationale_body))
+            .setPositiveButton(getString(R.string.yes)) { _, _ ->
                 listener.onYesClick()
             }
-            .setNegativeButton("No, thanks") {
+            .setNegativeButton(getString(R.string.no_thanks)) {
                     dialog, _ -> dialog.dismiss()
             }
             .show()

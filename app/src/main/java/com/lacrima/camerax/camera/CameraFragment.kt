@@ -31,14 +31,14 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.fragment.findNavController
 import androidx.window.layout.WindowMetrics
 import androidx.window.layout.WindowMetricsCalculator
-import com.example.gallery.permissiondialogs.DeniedPermissionCameraExplanation
-import com.example.gallery.permissiondialogs.DeniedPermissionCameraShowRationaleFragment
-import com.example.gallery.permissiondialogs.DeniedPermissionCameraShowRationaleFragment.DeniedCameraPermissionClickListener
 import com.lacrima.camerax.*
 import com.lacrima.camerax.MainViewModel.ScreenOrientation.*
 import com.lacrima.camerax.R
 import com.lacrima.camerax.camera.CameraFragment.ScreenOrientationPair.*
 import com.lacrima.camerax.databinding.*
+import com.lacrima.camerax.camera.permissiondialogs.DeniedPermissionCameraExplanation
+import com.lacrima.camerax.camera.permissiondialogs.DeniedPermissionCameraShowRationaleFragment
+import com.lacrima.camerax.camera.permissiondialogs.DeniedPermissionCameraShowRationaleFragment.DeniedCameraPermissionClickListener
 import com.lacrima.camerax.utils.ANIMATION_FAST_MILLIS
 import com.lacrima.camerax.utils.ANIMATION_SLOW_MILLIS
 import com.lacrima.camerax.utils.Util.setUiWindowInsetsBottom
@@ -55,7 +55,8 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
+class CameraFragment : Fragment(),
+    DeniedCameraPermissionClickListener {
 
     private lateinit var activityResultLauncherRequestPermission: ActivityResultLauncher<String>
     private var screenOrientationPair: ScreenOrientationPair = ScreenOrientation0to0
@@ -111,10 +112,9 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         ) { isGranted ->
             if (isGranted) {
                 // Permission is granted. Continue the workflow
-                // noCameraPermissionBinding.root.isVisible = false
-
                 // Build UI controls
                 updateCameraUi()
+                setUpCamera()
             } else {
                 /*
                 Explain to the user that the feature is unavailable because the
@@ -216,7 +216,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         // Inflate the layout for this fragment
         binding = FragmentCameraBinding.inflate(inflater, container, false)
 
@@ -470,6 +470,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
 
     /** Method used to re-draw the camera UI controls, called every time configuration changes. */
     private fun updateCameraUi() {
+        Timber.d("updateCameraUi")
         when (checkSelfPermission(requireContext(), Manifest.permission.CAMERA)) {
             PackageManager.PERMISSION_GRANTED -> {
                 // Use the API that requires the permission.
@@ -495,172 +496,166 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
 
                 // Setup Flash mode
                 binding.cameraFlashOnOffButton.setOnClickListener {
-                    if (camera?.cameraInfo?.hasFlashUnit() == true) {
-                        binding.cameraFlashOnOffButton.isEnabled = true
-                        changeViewRotation(binding.cameraFlashOnOffButton)
-                        Timber.d("CurrentImgResource is $currentImageResourceFlashButton")
-                        flashMode = when (flashMode) {
-                            ImageCapture.FLASH_MODE_AUTO -> {
-                                when (screenOrientationPair) {
-                                    ScreenOrientation0to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.flash_off_button_default
-                                            )
-                                    ScreenOrientation0to90 -> {
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_off_90_0
-                                            )
-                                    }
-                                    ScreenOrientation0to270 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_off_0_270
-                                            )
-                                    ScreenOrientation90to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_off_90_0
-                                            )
-                                    ScreenOrientation90to180 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_off_90_180
-                                            )
-                                    ScreenOrientation180to90 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_off_180_90
-                                            )
-                                    ScreenOrientation180to270 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_off_180_270
-                                            )
-                                    ScreenOrientation270to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_off_270_0
-                                            )
-                                    ScreenOrientation270to180 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_off_270_180
-                                            )
+                    binding.cameraFlashOnOffButton.isEnabled = true
+                    changeViewRotation(binding.cameraFlashOnOffButton)
+                    Timber.d("screenOrientationPair is $screenOrientationPair")
+                    flashMode = when (flashMode) {
+                        ImageCapture.FLASH_MODE_AUTO -> {
+                            when (screenOrientationPair) {
+                                ScreenOrientation0to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.flash_off_button_default
+                                        )
+                                ScreenOrientation0to90 -> {
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_off_90_0
+                                        )
                                 }
-                                ImageCapture.FLASH_MODE_OFF
+                                ScreenOrientation0to270 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_off_0_270
+                                        )
+                                ScreenOrientation90to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_off_90_0
+                                        )
+                                ScreenOrientation90to180 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_off_90_180
+                                        )
+                                ScreenOrientation180to90 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_off_180_90
+                                        )
+                                ScreenOrientation180to270 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_off_180_270
+                                        )
+                                ScreenOrientation270to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_off_270_0
+                                        )
+                                ScreenOrientation270to180 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_off_270_180
+                                        )
                             }
-                            ImageCapture.FLASH_MODE_OFF -> {
-                                when (screenOrientationPair) {
-                                    ScreenOrientation0to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.flash_on_button_default
-                                            )
-                                    ScreenOrientation0to90 -> {
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_on_90_0
-                                            )
-                                    }
-                                    ScreenOrientation0to270 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_on_0_270
-                                            )
-                                    ScreenOrientation90to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_on_90_0
-                                            )
-                                    ScreenOrientation90to180 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_on_90_180
-                                            )
-                                    ScreenOrientation180to90 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_on_180_90
-                                            )
-                                    ScreenOrientation180to270 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_on_180_270
-                                            )
-                                    ScreenOrientation270to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_on_270_0
-                                            )
-                                    ScreenOrientation270to180 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_on_270_180
-                                            )
-                                }
-                                ImageCapture.FLASH_MODE_ON
-                            }
-                            else -> {
-                                when (screenOrientationPair) {
-                                    ScreenOrientation0to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.flash_auto_button_default
-                                            )
-                                    ScreenOrientation0to90 -> {
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_auto_90_0
-                                            )
-                                    }
-                                    ScreenOrientation0to270 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_auto_0_270
-                                            )
-                                    ScreenOrientation90to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_auto_90_0
-                                            )
-                                    ScreenOrientation90to180 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_auto_90_180
-                                            )
-                                    ScreenOrientation180to90 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_auto_180_90
-                                            )
-                                    ScreenOrientation180to270 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_auto_180_270
-                                            )
-                                    ScreenOrientation270to0 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_auto_270_0
-                                            )
-                                    ScreenOrientation270to180 ->
-                                        binding.cameraFlashOnOffButton
-                                            .setImageResource(
-                                                R.drawable.animated_vector_flash_auto_270_180
-                                            )
-                                }
-
-                                ImageCapture.FLASH_MODE_AUTO
-                            }
+                            ImageCapture.FLASH_MODE_OFF
                         }
-                        bindCameraUseCases()
+                        ImageCapture.FLASH_MODE_OFF -> {
+                            when (screenOrientationPair) {
+                                ScreenOrientation0to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.flash_on_button_default
+                                        )
+                                ScreenOrientation0to90 -> {
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_on_90_0
+                                        )
+                                }
+                                ScreenOrientation0to270 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_on_0_270
+                                        )
+                                ScreenOrientation90to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_on_90_0
+                                        )
+                                ScreenOrientation90to180 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_on_90_180
+                                        )
+                                ScreenOrientation180to90 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_on_180_90
+                                        )
+                                ScreenOrientation180to270 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_on_180_270
+                                        )
+                                ScreenOrientation270to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_on_270_0
+                                        )
+                                ScreenOrientation270to180 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_on_270_180
+                                        )
+                            }
+                            ImageCapture.FLASH_MODE_ON
+                        }
+                        else -> {
+                            when (screenOrientationPair) {
+                                ScreenOrientation0to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.flash_auto_button_default
+                                        )
+                                ScreenOrientation0to90 -> {
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_auto_90_0
+                                        )
+                                }
+                                ScreenOrientation0to270 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_auto_0_270
+                                        )
+                                ScreenOrientation90to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_auto_90_0
+                                        )
+                                ScreenOrientation90to180 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_auto_90_180
+                                        )
+                                ScreenOrientation180to90 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_auto_180_90
+                                        )
+                                ScreenOrientation180to270 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_auto_180_270
+                                        )
+                                ScreenOrientation270to0 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_auto_270_0
+                                        )
+                                ScreenOrientation270to180 ->
+                                    binding.cameraFlashOnOffButton
+                                        .setImageResource(
+                                            R.drawable.animated_vector_flash_auto_270_180
+                                        )
+                            }
 
-                    } else {
-                        binding.cameraFlashOnOffButton.isEnabled = false
+                            ImageCapture.FLASH_MODE_AUTO
+                        }
                     }
-
+                    bindCameraUseCases()
                 }
             } PackageManager.PERMISSION_DENIED -> {
             Timber.d("Permission is denied")
@@ -738,7 +733,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                 progressViewBinding.progressBar.isVisible = false
                 Toast.makeText(
                     context,
-                    "An unexpected error occurred while making the photo.",
+                    getString(R.string.error_take_photo),
                     Toast.LENGTH_SHORT)
                     .show()
             }
@@ -761,34 +756,41 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     /** Initialize CameraX, and prepare to bind the camera use cases  */
     @SuppressLint("RestrictedApi")
     private fun setUpCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireActivity())
+        when (checkSelfPermission(requireContext(), Manifest.permission.CAMERA)) {
+            PackageManager.PERMISSION_GRANTED -> {
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(requireActivity())
 
-        cameraProviderFuture.addListener( {
-            // Used to bind the lifecycle of cameras to the lifecycle owner
-            cameraProvider = cameraProviderFuture.get()
+                // Disable Flash button if the flash unit is not available
+                Timber.d("Is flash enabled: " +
+                        "${imageCapture?.camera?.cameraInfo?.hasFlashUnit() != false}$")
+                    binding.cameraFlashOnOffButton.isEnabled =
+                        imageCapture?.camera?.cameraInfo?.hasFlashUnit() != false
 
-            // Disable Flash button if the flash unit is not available
-            binding.cameraFlashOnOffButton.isEnabled =
-                imageCapture?.camera?.cameraInfo?.hasFlashUnit() != false
+                cameraProviderFuture.addListener({
+                    // Used to bind the lifecycle of cameras to the lifecycle owner
+                    cameraProvider = cameraProviderFuture.get()
 
-            lensFacing = if (cameraSharedPreferences.contains(APP_PREFERENCES_LENS_FACING)) {
-                cameraSharedPreferences
-                    .getInt(APP_PREFERENCES_LENS_FACING, CameraSelector.LENS_FACING_BACK)
-            } else {
-                when {
-                    hasBackCamera() -> CameraSelector.LENS_FACING_BACK
-                    hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
-                    else -> throw IllegalStateException("Back and front camera are unavailable")
-                }
+                    lensFacing = if (cameraSharedPreferences.contains(APP_PREFERENCES_LENS_FACING)) {
+                        cameraSharedPreferences
+                            .getInt(APP_PREFERENCES_LENS_FACING, CameraSelector.LENS_FACING_BACK)
+                    } else {
+                        when {
+                            hasBackCamera() -> CameraSelector.LENS_FACING_BACK
+                            hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
+                            else -> throw IllegalStateException("Back and front camera are unavailable")
+                        }
+                    }
+
+                    // Enable or disable switching between cameras
+                    updateCameraSwitchButton()
+
+                    // Build and bind the camera use cases
+                    bindCameraUseCases()
+
+                }, ContextCompat.getMainExecutor(requireActivity()))
             }
-
-            // Enable or disable switching between cameras
-            updateCameraSwitchButton()
-
-            // Build and bind the camera use cases
-            bindCameraUseCases()
-
-        }, ContextCompat.getMainExecutor(requireActivity()))
+            else -> Unit
+        }
 
     }
 
@@ -820,8 +822,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         val screenAspectRatio = aspectRatio(metrics.width(), metrics.height())
         Timber.d("Preview aspect ratio: $screenAspectRatio")
 
-        val rotation = binding.viewFinder.display.rotation
-
         // CameraProvider
         val cameraProvider = cameraProvider
             ?: throw IllegalStateException("Camera initialization failed.")
@@ -830,20 +830,25 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
 
         // Preview
-        val preview = Preview.Builder()
+        val previewBuilder = Preview.Builder()
             // We request aspect ratio but no resolution
             .setTargetAspectRatio(screenAspectRatio)
-            // Set initial target rotation
-            .setTargetRotation(rotation)
-            .build()
 
         // ImageCapture
-        imageCapture = ImageCapture.Builder()
+        val imageCaptureBuilder = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setTargetAspectRatio(screenAspectRatio)
-            .setTargetRotation(rotation)
             .setFlashMode(flashMode)
-            .build()
+
+        if (binding.viewFinder.display?.rotation != null) {
+            val rotation = binding.viewFinder.display.rotation
+            previewBuilder.setTargetRotation(rotation)
+            imageCaptureBuilder.setTargetRotation(rotation)
+        }
+
+        val preview = previewBuilder.build()
+
+        imageCapture = imageCaptureBuilder.build()
 
         // Unbind use cases before rebinding
         cameraProvider.unbindAll()
@@ -860,7 +865,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         } catch(exc: Exception) {
             Timber.d("Use case binding failed: $exc")
         }
-
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -921,9 +925,7 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                     }
                     MotionEvent.ACTION_DOWN -> {
                         Timber.d("Action down")
-
                         setFocusPlaceAndVisibility(motionEvent.x, motionEvent.y)
-
                         true
                     }
                     // Unhandled event
@@ -973,7 +975,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                 }
                 // Update the target rotation of imageCapture
                 imageCapture?.targetRotation = rotation
-                Timber.d("imageCapture?.targetRotation is ${imageCapture?.targetRotation}")
             }
         }
     }
@@ -983,12 +984,21 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
         /*
         If the permission is already granted, but placeholder for this case is still visible,
         probably the user has just granted the permission to access camera in system settings,
-        which previously was rejected.
+        which previously was rejected. In this case buttons will have no listeners and
+        the default UI won't be visible.
          */
-        if (checkSelfPermission(requireContext(), Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED && noCameraPermissionBinding.root.isVisible) {
-            Timber.d("showAccess() is called inside onStart()")
+        if ( !binding.cameraCaptureButton.isVisible &&
+            !cameraUnexpectedErrorBinding.cameraErrorBackground.isVisible &&
+            checkSelfPermission(requireContext(), Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+        ) {
             showAccess()
+            Timber.d("Button flip hasOnClickListeners: " +
+                    "${binding.cameraFlipButton.hasOnClickListeners()}")
+            if (!binding.cameraFlipButton.hasOnClickListeners()) {
+                updateCameraUi()
+                setUpCamera()
+            }
         }
 
         orientationEventListener.enable()
@@ -1019,18 +1029,18 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                     // Open errors
                     CameraState.ERROR_STREAM_CONFIG -> {
                         // Make sure to setup the use cases properly
-                        showErrorPlaceholder("An unexpected error has occurred")
+                        showErrorPlaceholder(getString(R.string.unexpected_error_text))
                     }
                     // Opening errors
                     CameraState.ERROR_CAMERA_IN_USE -> {
                         // Close the camera or ask user to close another camera app that's using the
                         // camera
-                        showErrorPlaceholder("The camera is in use. Please, close other apps, tha uses the camera.")
+                        showErrorPlaceholder(getString(R.string.camera_in_use))
                     }
                     CameraState.ERROR_MAX_CAMERAS_IN_USE -> {
                         // Close another open camera in the app, or ask the user to close another
                         // camera app that's using the camera
-                        showErrorPlaceholder("All the cameras are in use. Please, close other apps, that uses the cameras.")
+                        showErrorPlaceholder(getString(R.string.cameras_in_use))
                     }
                     CameraState.ERROR_OTHER_RECOVERABLE_ERROR -> {
                         showErrorPlaceholder("An unexpected error has occurred")
@@ -1038,16 +1048,16 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
                     // Closing errors
                     CameraState.ERROR_CAMERA_DISABLED -> {
                         // Ask the user to enable the device's cameras
-                        showErrorPlaceholder("Camera is disabled. Please, enable system camera in the device settings and reopen the app.")
+                        showErrorPlaceholder(getString(R.string.camera_disabled))
                     }
                     CameraState.ERROR_CAMERA_FATAL_ERROR -> {
                         // Ask the user to reboot the device to restore camera function
-                        showErrorPlaceholder("Fatal error is occurred. Please, reboot the device to restore camera function.")
+                        showErrorPlaceholder(getString(R.string.camera_fatal_error))
                     }
                     // Closed errors
                     CameraState.ERROR_DO_NOT_DISTURB_MODE_ENABLED -> {
                         // Ask the user to disable the "Do Not Disturb" mode, then reopen the camera
-                        showErrorPlaceholder("Do not disturb mode enabled. Please, disable the \"Do Not Disturb\" mode, then reopen the camera")
+                        showErrorPlaceholder(getString(R.string.camera_do_not_disturb))
                     }
                 }
             }
@@ -1065,9 +1075,6 @@ class CameraFragment : Fragment(), DeniedCameraPermissionClickListener {
     }
 
     /**
-     *  [androidx.camera.core.ImageAnalysis.Builder] requires enum value of
-     *  [androidx.camera.core.AspectRatio]. Currently it has values of 4:3 & 16:9.
-     *
      *  Detecting the most suitable ratio for dimensions provided in @params by counting absolute
      *  of preview ratio to one of the provided values.
      *
