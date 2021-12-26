@@ -18,6 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.davemorrissey.labs.subscaleview.ImageSource
 import com.lacrima.camerax.MainViewModel
+import com.lacrima.camerax.R
 import com.lacrima.camerax.databinding.FragmentPhotoBinding
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -92,7 +93,7 @@ class PhotoFragment : Fragment(), DialogSaveImageClickListener {
 
         cannotDisplayImageBinding = CannotDisplayImageViewBinding.bind(binding.root)
 
-        val marginBottomOfButtons = 24.toPixels
+        val marginBottomOfButtons = 48.toPixels
 
         setUiWindowInsetsBottom(binding.saveAs, marginBottomOfButtons)
         setUiWindowInsetsBottom(binding.cancel, marginBottomOfButtons)

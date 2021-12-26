@@ -80,9 +80,11 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
         if (bytes != null) {
             buffer.get(bytes)
         }
+
         val bitmap = bytes?.size?.let { BitmapFactory.decodeByteArray(bytes, 0, it, null) }
             ?.rotate(imageProxy.imageInfo.rotationDegrees.toFloat())
             ?.flipHorizontally(isFlippedHorizontally)
+
 
         Timber.d("isFlippedHorizontally: $isFlippedHorizontally")
 

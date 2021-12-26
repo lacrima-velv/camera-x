@@ -228,7 +228,7 @@ class CameraFragment : Fragment(),
         cameraUnexpectedErrorBinding = CameraUnexpectedErrorViewBinding.bind(binding.root)
 
         // Set insets for buttons
-        val marginBottomOfButtons = 24.toPixels
+        val marginBottomOfButtons = 48.toPixels
 
         setUiWindowInsetsBottom(binding.cameraFlashOnOffButton, marginBottomOfButtons)
         setUiWindowInsetsBottom(binding.cameraCaptureButton, marginBottomOfButtons)
