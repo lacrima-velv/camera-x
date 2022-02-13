@@ -77,9 +77,8 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
         // Get the array of pixel planes for this Image
         val buffer = imageProxy?.planes?.get(0)?.buffer
         val bytes: ByteArray? = buffer?.capacity()?.let { ByteArray(it) }
-        if (bytes != null) {
-            buffer.get(bytes)
-        }
+
+        bytes?.let { buffer.get(it) }
 
         val bitmap = bytes?.size?.let { BitmapFactory.decodeByteArray(bytes, 0, it, null) }
             ?.rotate(imageProxy.imageInfo.rotationDegrees.toFloat())
